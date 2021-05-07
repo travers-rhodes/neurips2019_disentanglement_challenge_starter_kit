@@ -20,8 +20,8 @@ fi
 
 # Comment and uncomment as required...
 # Tensorflow:
-export PYTHONPATH=${PYTHONPATH}:${NDC_ROOT}/tensorflow
-python ${NDC_ROOT}/tensorflow/train_tensorflow.py
+#export PYTHONPATH=${PYTHONPATH}:${NDC_ROOT}/tensorflow
+#python ${NDC_ROOT}/tensorflow/train_tensorflow.py
 
 # Pytorch:
 # 
@@ -30,13 +30,13 @@ python ${NDC_ROOT}/tensorflow/train_tensorflow.py
 #		https://github.com/AIcrowd/neurips2019_disentanglement_challenge_starter_kit#how-do-i-specify-my-software-runtime-
 # 	as pytorch cannot be installed with just `pip`
 #
-#export PYTHONPATH=${PYTHONPATH}:${NDC_ROOT}/pytorch
-#python ${NDC_ROOT}/pytorch/train_pytorch.py --epochs 1
+export PYTHONPATH=${PYTHONPATH}:${NDC_ROOT}/pytorch
+python ${NDC_ROOT}/pytorch/train_pytorch.py --epochs 1
 
 # Numpy:
 #export PYTHONPATH=${PYTHONPATH}:${NDC_ROOT}/numpy
 #python ${NDC_ROOT}/numpy/train_numpy.py
 
 # Execute the local evaluation
-#echo "----- LOCAL EVALUATION -----"
-#python ${NDC_ROOT}/local_evaluation.py
+echo "----- LOCAL EVALUATION -----"
+python ${NDC_ROOT}/local_evaluation.py
