@@ -56,27 +56,73 @@ torch.manual_seed(args.seed)
 device = torch.device("cuda" if args.cuda else "cpu")
 
 kwargs = {'num_workers': 1, 'pin_memory': True} if args.cuda else {}
-train_loader = pyu.get_loader(batch_size=args.batch_size, **kwargs)
+# iterator_len defines length of an epoch
+train_loader = pyu.get_loader(batch_size=args.batch_size, iterator_len=args.batch_size * 300, **kwargs)
+
+# copied from
+# https://stackoverflow.com/questions/61039700/using-flatten-in-pytorch-v1-0-sequential-module
+class Flatten(nn.Module):
+    def forward(self, input):
+        return input.view(input.size(0), -1)
+
+# copied from 
+# https://discuss.pytorch.org/t/how-to-build-a-view-layer-in-pytorch-for-sequential-models/53958/11
+class View(nn.Module):
+    def __init__(self, shape):
+        super().__init__()
+        self.shape = shape
+
+    def __repr__(self):
+        return f'View{self.shape}'
+
+    def forward(self, input):
+        '''
+        Reshapes the input according to the shape saved in the view data structure.
+        '''
+        batch_size = input.size(0)
+        shape = (batch_size, *self.shape)
+        out = input.view(shape)
+        return out
 
 
 class Encoder(nn.Module):
     def __init__(self):
         super(Encoder, self).__init__()
-        self.tail = nn.Sequential(nn.Linear(4096 * 3, 400),
-                                  nn.ReLU())
-        self.head_mu = nn.Linear(400, 20)
-        self.head_logvar = nn.Linear(400, 20)
+        self.tail = nn.Sequential(
+                            nn.Conv2d(3, 64, 3, 2),
+                            nn.ReLU(),
+                            nn.Conv2d(64, 128, 3, 2),
+                            nn.ReLU(),
+                            Flatten(),
+                            # deduced by printing model...
+                            nn.Linear(128*15*15, 128),
+                            nn.ReLU())
+        self.head_mu = nn.Linear(128, 25)
+        self.head_logvar = nn.Linear(128, 25)
 
     def forward(self, x):
-        h = self.tail(x.contiguous().view(-1, 4096 * 3))
+        h = self.tail(x)
         return self.head_mu(h), self.head_logvar(h)
 
 
 class Decoder(nn.Sequential):
     def __init__(self):
-        super(Decoder, self).__init__(nn.Linear(20, 400),
+        super(Decoder, self).__init__(nn.Linear(25, 128),
                                       nn.ReLU(),
-                                      nn.Linear(400, 4096 * 3),
+                                      nn.Linear(128, 64*4*4),
+                                      nn.ReLU(),
+                                      View((64,4,4)),
+                                      nn.ConvTranspose2d(64, 64, 3, 2),
+                                      nn.ReLU(),
+                                      nn.ZeroPad2d(padding=(0, -1, 0, -1)),
+                                      nn.ConvTranspose2d(64, 32, 3, 2),
+                                      nn.ReLU(),
+                                      nn.ZeroPad2d(padding=(0, -1, 0, -1)),
+                                      nn.ConvTranspose2d(32, 16, 3, 2),
+                                      nn.ReLU(),
+                                      nn.ZeroPad2d(padding=(0, -1, 0, -1)),
+                                      nn.ConvTranspose2d(16, 3, 3, 2),
+                                      nn.ZeroPad2d(padding=(0, -1, 0, -1)),
                                       nn.Sigmoid())
 
 
@@ -123,7 +169,7 @@ optimizer = optim.Adam(model.parameters(), lr=1e-3)
 
 # Reconstruction + KL divergence losses summed over all elements and batch
 def loss_function(recon_x, x, mu, logvar):
-    BCE = F.binary_cross_entropy(recon_x, x.view(-1, 4096 * 3), reduction='sum')
+    BCE = F.binary_cross_entropy(recon_x, x, reduction='sum')
 
     # see Appendix B from VAE paper:
     # Kingma and Welling. Auto-Encoding Variational Bayes. ICLR, 2014
@@ -131,7 +177,7 @@ def loss_function(recon_x, x, mu, logvar):
     # 0.5 * sum(1 + log(sigma^2) - mu^2 - sigma^2)
     KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
 
-    return BCE + KLD
+    return BCE + KLD, BCE, KLD
 
 
 def train(epoch):
@@ -141,15 +187,17 @@ def train(epoch):
         data = data.to(device).float()
         optimizer.zero_grad()
         recon_batch, mu, logvar = model(data)
-        loss = loss_function(recon_batch, data, mu, logvar)
+        loss, BCE, KLD = loss_function(recon_batch, data, mu, logvar)
         loss.backward()
         train_loss += loss.item()
         optimizer.step()
         if batch_idx % args.log_interval == 0:
-            print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
+            print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}, BCE: {:.6f}, KLD: {:.6f}'.format(
                 epoch, batch_idx * len(data), len(train_loader.dataset),
                 100. * batch_idx / len(train_loader),
-                loss.item() / len(data)))
+                loss.item() / len(data),
+                BCE.item() / len(data),
+                KLD.item() / len(data)))
 
     print('====> Epoch: {} Average loss: {:.4f}'.format(
           epoch, train_loss / len(train_loader.dataset)))
