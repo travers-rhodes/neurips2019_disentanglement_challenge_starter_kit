@@ -1,0 +1,3 @@
+[submodule "disentanglement_lib"]
+	path = disentanglement_lib
+	url = git@github.com:travers-rhodes/disentanglement_lib.git
