@@ -17,6 +17,19 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
+
+import tensorflow as tf
+
+# trying so hard to mute tensorflow warnings...
+# https://stackoverflow.com/questions/57539273/disable-tensorflow-logging-completely
+import logging
+import absl.logging
+logging.root.removeHandler(absl.logging._absl_handler)
+absl.logging._warn_preinit_stderr = False
+logger = tf.get_logger()
+logger.setLevel(logging.ERROR)
+
+
 import os
 # from disentanglement_lib.evaluation import evaluate
 import disentanglement_lib
@@ -37,7 +50,6 @@ from disentanglement_lib.postprocessing import postprocess
 from disentanglement_lib.utils import aggregate_results
 from disentanglement_lib.visualize import visualize_model
 from disentanglement_lib.config.unsupervised_study_v1 import sweep as unsupervised_study_v1
-import tensorflow as tf
 import gin.tf
 import json
 import numpy as np
@@ -48,7 +60,6 @@ import numpy as np
 ##############################################################################
 base_path = os.getenv("AICROWD_OUTPUT_PATH","./scratch/shared")
 experiment_name = os.getenv("AICROWD_EVALUATION_NAME", "experiment_name")
-DATASET_NAME = "auto" 
 overwrite = True
 experiment_output_path = os.path.join(base_path, experiment_name)
 ROOT = os.getenv("NDC_ROOT", ".")
@@ -80,10 +91,10 @@ evaluation_configs.append(get_full_path("extra_metrics_configs/irs.gin"))
 # Compute individual metrics
 expected_evaluation_metrics = [
 #    'dci',
-    'factor_vae_metric',
-    'sap_score',    
-    'mig',
-    'irs'
+#    'factor_vae_metric',
+    #'sap_score',    
+    'mig'
+    #'irs'
 ]
 
 for gin_eval_config in evaluation_configs:
