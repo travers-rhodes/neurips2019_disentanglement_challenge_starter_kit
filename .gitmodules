@@ -1,6 +1,6 @@
 [submodule "disentanglement_lib"]
 	path = disentanglement_lib
-	url = git@github.com:travers-rhodes/disentanglement_lib.git
+	url = https://github.com/travers-rhodes/disentanglement_lib.git
 [submodule "lilvae"]
 	path = lilvae
-	url = git@github.com:travers-rhodes/lil-vae-disentanglement-challenge.git
+	url = https://github.com/travers-rhodes/lil-vae-disentanglement-challenge.git
