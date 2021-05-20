@@ -1,5 +1,6 @@
 # coding=utf-8
 # Copyright 2018 The DisentanglementLib Authors.  All rights reserved.
+# Copyright 2021 Travers Rhodes.  All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,6 +13,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+# This file was modified by Travers Rhodes
 
 # We group all the imports at the top.
 from __future__ import absolute_import
@@ -34,14 +37,15 @@ import os
 # from disentanglement_lib.evaluation import evaluate
 import disentanglement_lib
 
-try:
-    # Monkey patch in our own evaluate, which supports pytorch *and* tensorflow.
+#try:
+# Monkey patch in our own evaluate, which supports pytorch *and* tensorflow.
+if True: #TSR: we use pytorch, so don't hide any errors about it
     import evaluate
     disentanglement_lib.evaluation.evaluate = evaluate
     MONKEY = True
-except ImportError:
-    # No pytorch, no problem.
-    MONKEY = False
+#except ImportError:
+#    # No pytorch, no problem.
+#    MONKEY = False
 
 from disentanglement_lib.evaluation.metrics import utils
 from disentanglement_lib.methods.unsupervised import train
@@ -50,6 +54,7 @@ from disentanglement_lib.postprocessing import postprocess
 from disentanglement_lib.utils import aggregate_results
 from disentanglement_lib.visualize import visualize_model
 from disentanglement_lib.config.unsupervised_study_v1 import sweep as unsupervised_study_v1
+import gin.config
 import gin.tf
 import json
 import numpy as np
@@ -88,14 +93,32 @@ evaluation_configs = sorted(_study.get_eval_config_files())
 #Add IRS
 evaluation_configs.append(get_full_path("extra_metrics_configs/irs.gin"))
 
+#Add local config files from lilvae package
+lilvaeMetricConfigPath=get_full_path("lilvae/metrics_configs")
+for configFile in os.listdir(lilvaeMetricConfigPath):
+    evaluation_configs.append(get_full_path(os.path.join(lilvaeMetricConfigPath, configFile)))
+
+# allow the internal "import 'local_mig_base.gin'" to resolve file name correctly
+# unhelpfully, it still will return an error that it can't find the file (the first place it searches)
+# but print statements show it does get loaded (eventually)
+gin.config.add_config_file_search_path(get_full_path("lilvae/metrics_configs"))
+
 # Compute individual metrics
 expected_evaluation_metrics = [
 #    'dci',
 #    'factor_vae_metric',
     #'sap_score',    
-    'mig'
-    #'irs'
+    'mig',
+    'local_mig_0_1',
+    'local_mig_0_2',
+    'local_mig_0_3',
+    'local_mig_1_0',
 ]
+
+# we need a separate dataset config because we need to
+# be able to black out certain latent factors from the dataset which are not ordered
+# (in particular, the cars3d factor on type of car)
+gin_dataset_config = get_full_path(f"lilvae/dataset_configs/{exp_config.dataset_name}.gin")
 
 for gin_eval_config in evaluation_configs:
     metric_name = gin_eval_config.split("/")[-1].replace(".gin", "")
@@ -120,7 +143,7 @@ for gin_eval_config in evaluation_configs:
                 representation_path,
                 result_path,
                 overwrite,
-                [gin_eval_config],
+                [gin_eval_config, gin_dataset_config],
                 eval_bindings
                 )
 
@@ -141,9 +164,9 @@ for _metric_name in expected_evaluation_metrics:
     elif _metric_name == "dci":
         _score = evaluation_results["evaluation_results.disentanglement"]
         final_scores["dci"] = _score
-    elif _metric_name == "mig":
+    elif "mig" in _metric_name:
         _score = evaluation_results["evaluation_results.discrete_mig"]
-        final_scores["mig"] = _score
+        final_scores[_metric_name] = _score
     elif _metric_name == "sap_score":
         _score = evaluation_results["evaluation_results.SAP_score"]
         final_scores["sap_score"] = _score
