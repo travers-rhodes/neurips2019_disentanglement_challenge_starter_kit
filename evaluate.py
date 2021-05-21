@@ -31,6 +31,7 @@ from disentanglement_lib.evaluation.metrics import irs  # pylint: disable=unused
 from disentanglement_lib.evaluation.metrics import mig  # pylint: disable=unused-import
 from disentanglement_lib.evaluation.metrics import local_mig  # pylint: disable=unused-import
 from disentanglement_lib.evaluation.metrics import modularity_explicitness  # pylint: disable=unused-import
+from disentanglement_lib.evaluation.metrics import local_modularity # pylint: disable=unused-import
 from disentanglement_lib.evaluation.metrics import reduced_downstream_task  # pylint: disable=unused-import
 from disentanglement_lib.evaluation.metrics import sap_score  # pylint: disable=unused-import
 from disentanglement_lib.evaluation.metrics import unsupervised_metrics  # pylint: disable=unused-import
@@ -77,7 +78,7 @@ def evaluate_with_gin(model_dir,
 
 
 @gin.configurable(
-    "evaluation", blacklist=["model_dir", "output_dir", "overwrite"])
+    "evaluation", denylist=["model_dir", "output_dir", "overwrite"])
 def evaluate(model_dir,
              output_dir,
              overwrite=False,
